@@ -19,6 +19,16 @@ jobs:
       - name: Install dependencies
         run: yarn install --ignore-engines
 
+      - name: Debug token
+        env:
+          REACT_APP_GITHUB_TOKEN: ${{ secrets.DATA_WRITE_TOKEN }}
+        run: |
+          if [ -z "$REACT_APP_GITHUB_TOKEN" ]; then
+            echo "TOKEN IS EMPTY"
+          else
+            echo "TOKEN IS SET (length: ${#REACT_APP_GITHUB_TOKEN})"
+          fi
+
       - name: Build
         env:
           REACT_APP_GITHUB_TOKEN: ${{ secrets.DATA_WRITE_TOKEN }}
