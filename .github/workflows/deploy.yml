@@ -15,17 +15,16 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 18
-          cache: 'npm'
 
       - name: Install dependencies
-        run: npm install --legacy-peer-deps --prefer-offline
+        run: yarn install --ignore-engines
 
       - name: Build
         env:
           REACT_APP_GITHUB_TOKEN: ${{ secrets.DATA_WRITE_TOKEN }}
           PUBLIC_URL: /ai-tools-roadmap
           CI: false
-        run: npm run build
+        run: yarn build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
