@@ -1,146 +1,42 @@
 import * as React from 'react';
 import { useState, useMemo, useEffect } from 'react';
-import * as msalBrowser from '@azure/msal-browser';
 
 export interface IAIToolsRoadmapProps {
   context: null;
 }
 
-// ─── msal config ──────────────────────────────────────────────────────────────
-const CLIENT_ID = 'c36b261b-8efe-41c3-8080-79c6d6f3a936';
-const TENANT_ID = '781cf99d-c6ca-4970-940e-26a3d0ff7f2a';
-const SITE_HOST = 'servicenow.sharepoint.com';
-const SITE_PATH = '/sites/ImpactEngineeringUTG';
-const SCOPES    = ['https://graph.microsoft.com/Sites.ReadWrite.All'];
+// ─── github config ────────────────────────────────────────────────────────────
+const GITHUB_OWNER  = 'Bhaskaruni-Akhil';
+const GITHUB_REPO   = 'ai-tools-roadmap';
+const GITHUB_BRANCH = 'main';
+const RAW_URL       = `https://raw.githubusercontent.com/${GITHUB_OWNER}/${GITHUB_REPO}/${GITHUB_BRANCH}/public/data.json`;
+const GH_TOKEN      = process.env.REACT_APP_GITHUB_TOKEN || '';
 
-const msalInstance = new msalBrowser.PublicClientApplication({
-  auth: {
-    clientId: CLIENT_ID,
-    authority: `https://login.microsoftonline.com/${TENANT_ID}`,
-    redirectUri: window.location.origin,
-  },
-  cache: { cacheLocation: 'sessionStorage'},
-});
-
-async function getToken(): Promise<string> {
-  await msalInstance.initialize();
-  const accounts = msalInstance.getAllAccounts();
-  if (accounts.length) {
-    try {
-      const r = await msalInstance.acquireTokenSilent({ scopes: SCOPES, account: accounts[0] });
-      return r.accessToken;
-    } catch {}
-  }
-  const r = await msalInstance.loginPopup({ scopes: SCOPES });
-  return r.accessToken;
+async function fetchData(): Promise<{ data: any; sha: string }> {
+  const resp = await fetch(`${RAW_URL}?t=${Date.now()}`);
+  if (!resp.ok) throw new Error(`Fetch failed: ${resp.status}`);
+  const data = await resp.json();
+  return { data, sha: '' };
 }
 
-async function gql(method: string, path: string, body?: object): Promise<any> {
-  const token = await getToken();
-  const resp = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
-    method,
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!resp.ok) { const e = await resp.text(); throw new Error(e); }
-  if (method === 'DELETE') return null;
-  return resp.json();
-}
-
-// ─── graph helpers ────────────────────────────────────────────────────────────
-let _siteId: string | null = null;
-const _listIds: Record<string, string> = {};
-
-async function getSiteId(): Promise<string> {
-  if (_siteId) return _siteId;
-  const d = await gql('GET', `/sites/${SITE_HOST}:${SITE_PATH}`);
-  _siteId = d.id;
-  return _siteId!;
-}
-
-async function getListId(name: string): Promise<string> {
-  if (_listIds[name]) return _listIds[name];
-  const sid = await getSiteId();
-  const d = await gql('GET', `/sites/${sid}/lists?$filter=displayName eq '${name}'`);
-  if (!d.value.length) throw new Error(`List "${name}" not found on SharePoint.`);
-  _listIds[name] = d.value[0].id;
-  return _listIds[name];
-}
-
-async function getItems(listName: string): Promise<any[]> {
-  const sid = await getSiteId();
-  const lid = await getListId(listName);
-  let items: any[] = [];
-  let next: string | null = `/sites/${sid}/lists/${lid}/items?expand=fields`;
-  while (next) {
-    const d: any = await gql('GET', next);
-    items = [...items, ...d.value];
-    next = d['@odata.nextLink']
-      ? d['@odata.nextLink'].replace('https://graph.microsoft.com/v1.0', '')
-      : null;
-  }
-  return items.map((i: any) => ({ _id: i.id, ...i.fields }));
-}
-
-async function createItem(listName: string, fields: object): Promise<any> {
-  const sid = await getSiteId();
-  const lid = await getListId(listName);
-  const d = await gql('POST', `/sites/${sid}/lists/${lid}/items`, { fields });
-  return { _id: d.id, ...d.fields };
-}
-
-async function updateItem(listName: string, itemId: string, fields: object): Promise<void> {
-  const sid = await getSiteId();
-  const lid = await getListId(listName);
-  await gql('PATCH', `/sites/${sid}/lists/${lid}/items/${itemId}/fields`, fields);
-}
-
-async function deleteItem(listName: string, itemId: string): Promise<void> {
-  const sid = await getSiteId();
-  const lid = await getListId(listName);
-  await gql('DELETE', `/sites/${sid}/lists/${lid}/items/${itemId}`);
-}
-
-// ─── data mapping ─────────────────────────────────────────────────────────────
-function rowToTool(row: any, mRows: any[], sRows: any[]): any {
-  const name = row.name || row.Title || '';
-  return {
-    id: row._id, _spId: row._id, name,
-    category: row.category || 'hsd',
-    status:   row.status   || 'Backlog',
-    impact:   row.impact   || 'Medium',
-    description: row.description || '',
-    owners: row.owners ? row.owners.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
-    w1Date:        row.w1Date        ? row.w1Date.split('T')[0]        : null,
-    targetEndDate: row.targetEndDate ? row.targetEndDate.split('T')[0] : null,
-    flaggedProgressWeek: row.flaggedProgressWeek || null,
-    notes: row.notes || '',
-    milestones: mRows
-      .filter((m: any) => (m.tool_name || '').trim() === name)
-      .map((m: any) => ({
-        id: m._id, _spId: m._id,
-        label: m.label || m.Title || '',
-        week:  parseInt(m.week) || 1,
-        done:  !!m.done,
-        targetDate: m.targetDate ? m.targetDate.split('T')[0] : null,
-      })),
-    subtasks: sRows
-      .filter((s: any) => (s.tool_name || '').trim() === name)
-      .map((s: any) => ({
-        id: s._id, _spId: s._id,
-        label: s.label || s.Title || '',
-        done:  !!s.done,
-      })),
-  };
-}
-
-async function loadFromSP(): Promise<any[]> {
-  const [tRows, mRows, sRows] = await Promise.all([
-    getItems('RoadmapTools'),
-    getItems('RoadmapMilestones'),
-    getItems('RoadmapSubtasks'),
-  ]);
-  return tRows.map((r: any) => rowToTool(r, mRows, sRows));
+async function saveData(data: any, _sha: string): Promise<string> {
+  const resp = await fetch(
+    `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/actions/workflows/update-data.yml/dispatches`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${GH_TOKEN}`,
+        Accept: 'application/vnd.github.v3+json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        ref: GITHUB_BRANCH,
+        inputs: { data: JSON.stringify(data) },
+      }),
+    }
+  );
+  if (!resp.ok) throw new Error(`Save failed: ${resp.status}`);
+  return '';
 }
 
 // ─── constants ────────────────────────────────────────────────────────────────
@@ -174,34 +70,83 @@ const SEED_USERS = [
   { id: 3, name: 'Hruthik', username: 'hruthik', password: 'view123',  role: 'viewer' },
 ];
 
+const SEED_TOOLS = [
+  {
+    id: '1', name: 'HSD Conversion', category: 'hsd', status: 'In Progress', impact: 'High',
+    owners: [], description: 'Automated conversion of HSD artifacts to target format using AI',
+    w1Date: null, targetEndDate: null, flaggedProgressWeek: null, notes: '',
+    milestones: [
+      { id: 'm1', label: 'Discovery & scoping', week: 1,  done: true,  targetDate: null },
+      { id: 'm2', label: 'Prototype ready',     week: 4,  done: true,  targetDate: null },
+      { id: 'm3', label: 'Internal review',     week: 7,  done: false, targetDate: null },
+      { id: 'm4', label: 'Team rollout',        week: 10, done: false, targetDate: null },
+    ],
+    subtasks: [
+      { id: 's1', label: 'Define input/output schema',  done: true  },
+      { id: 's2', label: 'Build AI parsing layer',      done: true  },
+      { id: 's3', label: 'Error handling & edge cases', done: false },
+      { id: 's4', label: 'QA & validation pass',        done: false },
+    ],
+  },
+  {
+    id: '2', name: 'Selenium Test Generation', category: 'selenium', status: 'In Progress', impact: 'High',
+    owners: [], description: 'AI-assisted Selenium test case generation via Windsurf + BT1 MCP server',
+    w1Date: null, targetEndDate: null, flaggedProgressWeek: null, notes: '',
+    milestones: [
+      { id: 'm5', label: 'MCP server integration', week: 1,  done: true,  targetDate: null },
+      { id: 'm6', label: 'XPath accuracy fix',     week: 3,  done: true,  targetDate: null },
+      { id: 'm7', label: 'Demo to stakeholders',   week: 5,  done: true,  targetDate: null },
+      { id: 'm8', label: 'XPath automation',       week: 8,  done: false, targetDate: null },
+      { id: 'm9', label: 'Git integration',        week: 11, done: false, targetDate: null },
+    ],
+    subtasks: [
+      { id: 's5', label: 'Story/defect input parsing',              done: true  },
+      { id: 's6', label: 'Reliable XPath capture via Selenium IDE', done: true  },
+      { id: 's7', label: 'Automate XPath recording',                done: false },
+      { id: 's8', label: 'Git integration for test export',         done: false },
+    ],
+  },
+  {
+    id: '3', name: 'Playwright Conversion', category: 'playwright', status: 'Planning', impact: 'Medium',
+    owners: [], description: 'Convert Selenium/manual test suites to Playwright via AI-assisted migration',
+    w1Date: null, targetEndDate: null, flaggedProgressWeek: null, notes: '',
+    milestones: [
+      { id: 'm10', label: 'Scope & feasibility',   week: 2,  done: false, targetDate: null },
+      { id: 'm11', label: 'Conversion prototype',  week: 6,  done: false, targetDate: null },
+      { id: 'm12', label: 'Pilot on 1 test suite', week: 9,  done: false, targetDate: null },
+      { id: 'm13', label: 'Full rollout',           week: 13, done: false, targetDate: null },
+    ],
+    subtasks: [
+      { id: 's9',  label: 'Audit existing Selenium suite',   done: false },
+      { id: 's10', label: 'Define Playwright target format', done: false },
+      { id: 's11', label: 'Build AI conversion script',      done: false },
+      { id: 's12', label: 'Validate converted tests',        done: false },
+    ],
+  },
+];
+
 // ─── helpers ──────────────────────────────────────────────────────────────────
 function addWeeks(d: Date, n: number): Date { return new Date(d.getTime() + n * MS_PER_WEEK); }
 function startOfDay(d: Date): Date { const x = new Date(d); x.setHours(0,0,0,0); return x; }
 function fmtShort(d: Date): string { return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }); }
 function fmtFull(d: Date): string  { return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }); }
 function initials(n: string): string { return n.trim().split(/\s+/).map((w: string) => w[0]).join('').slice(0, 2).toUpperCase(); }
+function uid(): string { return Math.random().toString(36).slice(2) + Date.now().toString(36); }
 
 function buildAxis(tools: any[]): any {
   const dated = tools.filter(t => t.w1Date);
   if (!dated.length) return null;
   const starts = dated.map(t => startOfDay(new Date(t.w1Date)));
-  const ends   = dated.map(t => t.targetEndDate
-    ? startOfDay(new Date(t.targetEndDate))
-    : addWeeks(startOfDay(new Date(t.w1Date)), TOTAL_WEEKS - 1));
+  const ends   = dated.map(t => t.targetEndDate ? startOfDay(new Date(t.targetEndDate)) : addWeeks(startOfDay(new Date(t.w1Date)), TOTAL_WEEKS - 1));
   const min = new Date(Math.min(...starts.map(d => d.getTime())));
   const max = new Date(Math.max(...ends.map(d => d.getTime())));
   return { minDate: min, totalCols: Math.ceil((max.getTime() - min.getTime() + MS_PER_WEEK) / MS_PER_WEEK) };
 }
-
 function toolPos(tool: any, axis: any): any {
   if (!tool.w1Date || !axis) return null;
   const w1 = startOfDay(new Date(tool.w1Date));
-  return {
-    leftPct:  ((w1.getTime() - axis.minDate.getTime()) / (axis.totalCols * MS_PER_WEEK)) * 100,
-    widthPct: (TOTAL_WEEKS / axis.totalCols) * 100,
-  };
+  return { leftPct: ((w1.getTime() - axis.minDate.getTime()) / (axis.totalCols * MS_PER_WEEK)) * 100, widthPct: (TOTAL_WEEKS / axis.totalCols) * 100 };
 }
-
 function progress(tool: any): number {
   const all = tool.subtasks.length + tool.milestones.length;
   return all === 0 ? 0 : ((tool.subtasks.filter((s: any) => s.done).length + tool.milestones.filter((m: any) => m.done).length) / all) * 100;
@@ -211,7 +156,6 @@ function progress(tool: any): number {
 function Badge({ label, colors }: { label: string; colors: any }): React.ReactElement {
   return <span style={{ fontSize: 11, fontWeight: 500, padding: '2px 8px', borderRadius: 4, background: colors.bg, color: colors.text }}>{label}</span>;
 }
-
 function Avatar({ name, color, size = 24 }: { name: string; color: any; size?: number }): React.ReactElement {
   return (
     <div title={name} style={{ width: size, height: size, borderRadius: '50%', background: color.light, border: `1.5px solid ${color.badge}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: 500, color: color.text, flexShrink: 0 }}>
@@ -219,7 +163,6 @@ function Avatar({ name, color, size = 24 }: { name: string; color: any; size?: n
     </div>
   );
 }
-
 function ProgressRing({ pct, color }: { pct: number; color: any }): React.ReactElement {
   const r = 16, circ = 2 * Math.PI * r;
   return (
@@ -233,7 +176,6 @@ function ProgressRing({ pct, color }: { pct: number; color: any }): React.ReactE
     </svg>
   );
 }
-
 function RocketIcon({ color, size = 16 }: { color: string; size?: number }): React.ReactElement {
   return (
     <svg viewBox='0 0 24 24' width={size} height={size} fill='none' style={{ display: 'block' }}>
@@ -248,7 +190,7 @@ function RocketIcon({ color, size = 16 }: { color: string; size?: number }): Rea
 }
 
 function GanttBar({ tool, axis, color }: { tool: any; axis: any; color: any }): React.ReactElement {
-  const pos   = toolPos(tool, axis);
+  const pos = toolPos(tool, axis);
   const today = startOfDay(new Date());
   const todayPct = axis ? ((today.getTime() - axis.minDate.getTime()) / (axis.totalCols * MS_PER_WEEK)) * 100 : null;
   const w1 = tool.w1Date ? startOfDay(new Date(tool.w1Date)) : null;
@@ -272,7 +214,7 @@ function GanttBar({ tool, axis, color }: { tool: any; axis: any; color: any }): 
         return (
           <>
             <div style={{ position: 'absolute', left: `${pos.leftPct}%`, width: `${w}%`, top: '50%', transform: 'translateY(-50%)', height: 6, background: color.badge, opacity: 0.25, borderRadius: 3 }} />
-            <div style={{ position: 'absolute', left: `${rl}%`, top: '50%', transform: 'translateY(-65%) rotate(-45deg)', zIndex: 5, animation: 'rocketFloat 0.6s ease-in-out infinite alternate', filter: `drop-shadow(0 0 3px ${color.badge}88)` }}>
+            <div style={{ position: 'absolute', left: `${rl}%`, top: '50%', transform: 'translateY(-65%) rotate(-45deg)', zIndex: 5, animation: 'rocketFloat 0.6s ease-in-out infinite alternate' }}>
               <RocketIcon color={color.badge} size={16} />
             </div>
           </>
@@ -310,7 +252,6 @@ function GanttBar({ tool, axis, color }: { tool: any; axis: any; color: any }): 
   );
 }
 
-// ─── login screen ─────────────────────────────────────────────────────────────
 function LoginScreen({ users, onLogin }: { users: any[]; onLogin: (u: any) => void }): React.ReactElement {
   const [un, setUn] = useState('');
   const [pw, setPw] = useState('');
@@ -320,7 +261,7 @@ function LoginScreen({ users, onLogin }: { users: any[]; onLogin: (u: any) => vo
     if (u) { setErr(''); onLogin(u); } else setErr('Incorrect username or password.');
   }
   return (
-    <div style={{ minHeight: 420, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'inherit' }}>
+    <div style={{ minHeight: 420, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ width: 340, background: 'white', border: '0.5px solid #e5e7eb', borderRadius: 12, padding: 28 }}>
         <div style={{ fontSize: 11, fontWeight: 500, color: '#6b7280', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 6 }}>Health Portfolio</div>
         <div style={{ fontSize: 18, fontWeight: 500, marginBottom: 4 }}>AI Tools Roadmap</div>
@@ -340,12 +281,11 @@ function LoginScreen({ users, onLogin }: { users: any[]; onLogin: (u: any) => vo
   );
 }
 
-// ─── user panel ───────────────────────────────────────────────────────────────
 function UserPanel({ users, setUsers, onClose }: { users: any[]; setUsers: any; onClose: () => void }): React.ReactElement {
   const [nn, setNn] = useState(''); const [nu, setNu] = useState(''); const [np, setNp] = useState(''); const [nr, setNr] = useState('viewer'); const [err, setErr] = useState('');
   function add(): void {
     if (!nn.trim() || !nu.trim() || !np.trim()) { setErr('All fields required.'); return; }
-    if (users.find(u => u.username === nu.trim().toLowerCase())) { setErr('Username taken.'); return; }
+    if (users.find((u: any) => u.username === nu.trim().toLowerCase())) { setErr('Username taken.'); return; }
     setUsers((u: any[]) => [...u, { id: Date.now(), name: nn.trim(), username: nu.trim().toLowerCase(), password: np, role: nr }]);
     setNn(''); setNu(''); setNp(''); setErr('');
   }
@@ -355,17 +295,17 @@ function UserPanel({ users, setUsers, onClose }: { users: any[]; setUsers: any; 
         <div style={{ fontSize: 15, fontWeight: 500 }}>Manage users</div>
         <button onClick={onClose} style={{ fontSize: 12, padding: '3px 10px', cursor: 'pointer' }}>Close</button>
       </div>
-      {users.map(u => (
+      {users.map((u: any) => (
         <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: '0.5px solid #e5e7eb' }}>
           <Avatar name={u.name} color={{ light: ROLE_COLORS[u.role].bg, badge: ROLE_COLORS[u.role].text, text: ROLE_COLORS[u.role].text }} size={28} />
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 13, fontWeight: 500 }}>{u.name}</div>
             <div style={{ fontSize: 11, color: '#6b7280' }}>@{u.username}</div>
           </div>
-          <select value={u.role} onChange={e => { const r = e.target.value; setUsers((us: any[]) => us.map(x => x.id === u.id ? { ...x, role: r } : x)); }} style={{ fontSize: 12 }}>
+          <select value={u.role} onChange={e => { const r = e.target.value; setUsers((us: any[]) => us.map((x: any) => x.id === u.id ? { ...x, role: r } : x)); }} style={{ fontSize: 12 }}>
             {['admin','editor','viewer'].map(r => <option key={r} value={r}>{r}</option>)}
           </select>
-          <button onClick={() => setUsers((us: any[]) => us.filter(x => x.id !== u.id))} style={{ fontSize: 11, padding: '2px 8px', color: '#A32D2D', border: '0.5px solid #A32D2D', background: 'transparent', borderRadius: 4, cursor: 'pointer' }}>Remove</button>
+          <button onClick={() => setUsers((us: any[]) => us.filter((x: any) => x.id !== u.id))} style={{ fontSize: 11, padding: '2px 8px', color: '#A32D2D', border: '0.5px solid #A32D2D', background: 'transparent', borderRadius: 4, cursor: 'pointer' }}>Remove</button>
         </div>
       ))}
       <div style={{ marginTop: 16 }}>
@@ -394,11 +334,12 @@ function UserPanel({ users, setUsers, onClose }: { users: any[]; setUsers: any; 
 // ─── main component ───────────────────────────────────────────────────────────
 const AIToolsRoadmap: React.FC<IAIToolsRoadmapProps> = () => {
   const [loading,     setLoading]    = useState(true);
-  const [spError,     setSpError]    = useState<string | null>(null);
+  const [ghError,     setGhError]    = useState<string | null>(null);
   const [syncing,     setSyncing]    = useState(false);
+  const [fileSha,     setFileSha]    = useState<string>('');
   const [users,       setUsers]      = useState<any[]>(SEED_USERS);
   const [currentUser, setCurrentUser]= useState<any>(null);
-  const [tools,       setTools]      = useState<any[]>([]);
+  const [tools,       setTools]      = useState<any[]>(SEED_TOOLS);
   const [expanded,    setExpanded]   = useState<any>(null);
   const [activeTab,   setActiveTab]  = useState('roadmap');
   const [editTool,    setEditTool]   = useState<any>(null);
@@ -419,12 +360,26 @@ const AIToolsRoadmap: React.FC<IAIToolsRoadmapProps> = () => {
 
   useEffect(() => {
     let cancelled = false;
-    loadFromSP()
-      .then(spTools => { if (!cancelled && spTools.length) setTools(spTools); })
-      .catch(e => { if (!cancelled) setSpError(e.message); })
+    fetchData()
+      .then(({ data, sha }: { data: any; sha: string }) => {
+        if (!cancelled) {
+          setFileSha(sha);
+          if (data.tools && data.tools.length) setTools(data.tools);
+          if (data.users && data.users.length) setUsers(data.users);
+        }
+      })
+      .catch((e: any) => { if (!cancelled) setGhError(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
+
+  const persist = (updatedTools: any[], updatedUsers?: any[]) => {
+  setSyncing(true);
+  const data = { tools: updatedTools, users: updatedUsers || users };
+  saveData(data, '')
+    .then(() => setSyncing(false))
+    .catch((e: any) => { setGhError(e.message); setSyncing(false); });
+};
 
   const axis = useMemo(() => buildAxis(tools), [tools]);
   const axisLabels = useMemo(() => {
@@ -436,146 +391,97 @@ const AIToolsRoadmap: React.FC<IAIToolsRoadmapProps> = () => {
   const canEdit  = currentUser?.role === 'editor' || isAdmin;
   const canAdmin = isAdmin;
 
-  function syncToolFields(tool: any): void {
-    setSyncing(true);
-    const fields = { name: tool.name, category: tool.category, status: tool.status, impact: tool.impact, description: tool.description, owners: tool.owners.join(', '), notes: tool.notes || '', w1Date: tool.w1Date || null, targetEndDate: tool.targetEndDate || null, flaggedProgressWeek: tool.flaggedProgressWeek || null };
-    const p = tool._spId
-      ? updateItem('RoadmapTools', tool._spId, fields)
-      : createItem('RoadmapTools', fields).then(c => { setTools(ts => ts.map(x => x.id === tool.id ? { ...x, _spId: c._id, id: c._id } : x)); });
-    p.catch(e => setSpError(e.message)).finally(() => setSyncing(false));
-  }
-
   function upField(id: any, f: string, v: any): void {
-    setTools(ts => ts.map(x => x.id === id ? { ...x, [f]: v } : x));
-    const tool = tools.find(x => x.id === id);
-    if (tool) syncToolFields({ ...tool, [f]: v });
+    const updated = tools.map((x: any) => x.id === id ? { ...x, [f]: v } : x);
+    setTools(updated); persist(updated);
   }
-
   function togSubtask(tid: any, sid: any): void {
-    setTools(ts => ts.map(x => x.id === tid ? { ...x, subtasks: x.subtasks.map((s: any) => s.id === sid ? { ...s, done: !s.done } : s) } : x));
-    const tool = tools.find(x => x.id === tid);
-    const sub  = tool?.subtasks.find((s: any) => s.id === sid);
-    if (!sub) return;
-    const p = sub._spId
-      ? updateItem('RoadmapSubtasks', sub._spId, { tool_name: tool.name, label: sub.label, done: !sub.done })
-      : createItem('RoadmapSubtasks', { tool_name: tool.name, label: sub.label, done: !sub.done }).then((c: any) => { setTools(ts => ts.map(x => x.id === tid ? { ...x, subtasks: x.subtasks.map((s: any) => s.id === sid ? { ...s, _spId: c._id, id: c._id } : s) } : x)); });
-    p.catch((e: any) => setSpError(e.message));
+    const updated = tools.map((x: any) => x.id === tid ? { ...x, subtasks: x.subtasks.map((s: any) => s.id === sid ? { ...s, done: !s.done } : s) } : x);
+    setTools(updated); persist(updated);
   }
-
   function togMilestone(tid: any, mid: any): void {
-    setTools(ts => ts.map(x => x.id === tid ? { ...x, milestones: x.milestones.map((m: any) => m.id === mid ? { ...m, done: !m.done } : m) } : x));
-    const tool = tools.find(x => x.id === tid);
-    const mil  = tool?.milestones.find((m: any) => m.id === mid);
-    if (!mil) return;
-    const p = mil._spId
-      ? updateItem('RoadmapMilestones', mil._spId, { tool_name: tool.name, label: mil.label, week: mil.week, done: !mil.done, targetDate: mil.targetDate || null })
-      : createItem('RoadmapMilestones', { tool_name: tool.name, label: mil.label, week: mil.week, done: !mil.done }).then((c: any) => { setTools(ts => ts.map(x => x.id === tid ? { ...x, milestones: x.milestones.map((m: any) => m.id === mid ? { ...m, _spId: c._id, id: c._id } : m) } : x)); });
-    p.catch((e: any) => setSpError(e.message));
+    const updated = tools.map((x: any) => x.id === tid ? { ...x, milestones: x.milestones.map((m: any) => m.id === mid ? { ...m, done: !m.done } : m) } : x);
+    setTools(updated); persist(updated);
   }
-
   function addMilestone(tid: any): void {
-    const tool = tools.find(x => x.id === tid);
-    createItem('RoadmapMilestones', { tool_name: tool.name, label: '', week: 1, done: false })
-      .then((c: any) => { setTools(ts => ts.map(x => x.id === tid ? { ...x, milestones: [...x.milestones, { id: c._id, _spId: c._id, label: '', week: 1, done: false, targetDate: null }] } : x)); })
-      .catch((e: any) => setSpError(e.message));
+    const nm = { id: uid(), label: '', week: 1, done: false, targetDate: null };
+    const updated = tools.map((x: any) => x.id === tid ? { ...x, milestones: [...x.milestones, nm] } : x);
+    setTools(updated); persist(updated);
   }
-
   function upMilestone(tid: any, mid: any, f: string, v: any): void {
-    setTools(ts => ts.map(x => x.id === tid ? { ...x, milestones: x.milestones.map((m: any) => m.id === mid ? { ...m, [f]: v } : m) } : x));
-    const tool = tools.find(x => x.id === tid);
-    const mil  = tool?.milestones.find((m: any) => m.id === mid);
-    if (mil?._spId) updateItem('RoadmapMilestones', mil._spId, { [f]: v }).catch((e: any) => setSpError(e.message));
+    const updated = tools.map((x: any) => x.id === tid ? { ...x, milestones: x.milestones.map((m: any) => m.id === mid ? { ...m, [f]: v } : m) } : x);
+    setTools(updated); persist(updated);
   }
-
   function delMilestone(tid: any, mid: any): void {
-    const tool = tools.find(x => x.id === tid);
-    const mil  = tool?.milestones.find((m: any) => m.id === mid);
-    setTools(ts => ts.map(x => x.id === tid ? { ...x, milestones: x.milestones.filter((m: any) => m.id !== mid) } : x));
-    if (mil?._spId) deleteItem('RoadmapMilestones', mil._spId).catch((e: any) => setSpError(e.message));
+    const updated = tools.map((x: any) => x.id === tid ? { ...x, milestones: x.milestones.filter((m: any) => m.id !== mid) } : x);
+    setTools(updated); persist(updated);
   }
-
   function addOwner(tid: any): void {
     const name = (ownerInput[tid] || '').trim();
     if (!name) return;
-    const tool = tools.find(x => x.id === tid);
+    const tool = tools.find((x: any) => x.id === tid);
     if (!tool || tool.owners.includes(name)) return;
-    const updated = { ...tool, owners: [...tool.owners, name] };
-    setTools(ts => ts.map(x => x.id === tid ? updated : x));
-    setOwnerInput(o => ({ ...o, [tid]: '' }));
-    syncToolFields(updated);
+    const updated = tools.map((x: any) => x.id === tid ? { ...x, owners: [...x.owners, name] } : x);
+    setTools(updated); setOwnerInput(o => ({ ...o, [tid]: '' })); persist(updated);
   }
-
   function removeOwner(tid: any, name: string): void {
-    const tool = tools.find(x => x.id === tid);
-    const updated = { ...tool, owners: tool.owners.filter((o: string) => o !== name) };
-    setTools(ts => ts.map(x => x.id === tid ? updated : x));
-    syncToolFields(updated);
+    const updated = tools.map((x: any) => x.id === tid ? { ...x, owners: x.owners.filter((o: string) => o !== name) } : x);
+    setTools(updated); persist(updated);
   }
-
   function startEdit(tool: any, e: React.MouseEvent): void {
     e.stopPropagation();
     setEditData({ name: tool.name, description: tool.description, status: tool.status, impact: tool.impact, notes: tool.notes });
     setEditTool(tool.id);
   }
-
   function saveEdit(id: any): void {
-    setTools(ts => ts.map(x => x.id === id ? { ...x, ...editData } : x));
-    setEditTool(null);
-    const tool = tools.find(x => x.id === id);
-    if (tool) syncToolFields({ ...tool, ...editData });
+    const updated = tools.map((x: any) => x.id === id ? { ...x, ...editData } : x);
+    setTools(updated); setEditTool(null); persist(updated);
   }
-
   function deleteTool(id: any, e: React.MouseEvent): void {
     e.stopPropagation();
-    const tool = tools.find(x => x.id === id);
-    setTools(ts => ts.filter(x => x.id !== id));
-    if (expanded === id) setExpanded(null);
-    if (!tool) return;
-    if (tool._spId) deleteItem('RoadmapTools', tool._spId).catch((e2: any) => setSpError(e2.message));
-    tool.milestones.forEach((m: any) => { if (m._spId) deleteItem('RoadmapMilestones', m._spId).catch(() => {}); });
-    tool.subtasks.forEach((s: any) => { if (s._spId) deleteItem('RoadmapSubtasks', s._spId).catch(() => {}); });
+    const updated = tools.filter((x: any) => x.id !== id);
+    setTools(updated); if (expanded === id) setExpanded(null); persist(updated);
   }
-
   function getCurWeek(tool: any): number | null {
     if (!tool.w1Date) return null;
     const d = Math.floor((startOfDay(new Date()).getTime() - startOfDay(new Date(tool.w1Date)).getTime()) / MS_PER_WEEK);
     return d < 0 ? null : Math.min(d + 1, TOTAL_WEEKS);
   }
-
   function flagProgress(tid: any): void {
-    const cw = getCurWeek(tools.find(t => t.id === tid));
+    const cw = getCurWeek(tools.find((t: any) => t.id === tid));
     if (cw) upField(tid, 'flaggedProgressWeek', cw);
   }
-
   function addToolFn(): void {
     if (!newToolName.trim()) return;
-    createItem('RoadmapTools', { name: newToolName, category: 'hsd', status: 'Backlog', impact: 'Medium', description: newToolDesc, owners: '', notes: '' })
-      .then((c: any) => { setTools(ts => [...ts, { id: c._id, _spId: c._id, name: newToolName, category: 'hsd', status: 'Backlog', impact: 'Medium', owners: [], description: newToolDesc, w1Date: null, targetEndDate: null, flaggedProgressWeek: null, milestones: [], subtasks: [], notes: '' }]); })
-      .catch((e: any) => setSpError(e.message));
+    const nt = { id: uid(), name: newToolName, category: 'hsd', status: 'Backlog', impact: 'Medium', owners: [], description: newToolDesc, w1Date: null, targetEndDate: null, flaggedProgressWeek: null, milestones: [], subtasks: [], notes: '' };
+    const updated = [...tools, nt];
+    setTools(updated); persist(updated);
     setNewTool(false); setNewToolName(''); setNewToolDesc('');
   }
+  function handleUsersChange(updatedUsers: any[]): void {
+    setUsers(updatedUsers); persist(tools, updatedUsers);
+  }
 
-  const avgProgress = tools.length ? Math.round(tools.reduce((a, t) => a + progress(t), 0) / tools.length) : 0;
+  const avgProgress = tools.length ? Math.round(tools.reduce((a: number, t: any) => a + progress(t), 0) / tools.length) : 0;
 
   if (loading) return (
-    <div style={{ minHeight: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, fontFamily: 'inherit', color: '#6b7280' }}>
+    <div style={{ minHeight: 300, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: '#6b7280' }}>
       <div style={{ fontSize: 28 }}>🚀</div>
-      <div style={{ fontSize: 13 }}>Connecting to SharePoint…</div>
+      <div style={{ fontSize: 13 }}>Loading roadmap data…</div>
     </div>
   );
-
-  if (!currentUser) return <LoginScreen users={users} onLogin={u => setCurrentUser(u)} />;
+  if (!currentUser) return <LoginScreen users={users} onLogin={(u: any) => setCurrentUser(u)} />;
 
   return (
     <div style={{ fontFamily: 'inherit', color: '#111827', padding: '1.5rem' }}>
-      {showUsers && canAdmin && <UserPanel users={users} setUsers={setUsers} onClose={() => setShowUsers(false)} />}
-      {spError && (
+      {showUsers && canAdmin && <UserPanel users={users} setUsers={handleUsersChange} onClose={() => setShowUsers(false)} />}
+      {ghError && (
         <div style={{ marginBottom: 12, padding: '10px 14px', background: '#FCEBEB', borderRadius: 8, fontSize: 12, color: '#A32D2D', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>SharePoint error: {spError}</span>
-          <button onClick={() => setSpError(null)} style={{ fontSize: 11, padding: '2px 8px', color: '#A32D2D', border: '0.5px solid #A32D2D', background: 'transparent', cursor: 'pointer', borderRadius: 4 }}>Dismiss</button>
+          <span>Error: {ghError}</span>
+          <button onClick={() => setGhError(null)} style={{ fontSize: 11, padding: '2px 8px', color: '#A32D2D', border: '0.5px solid #A32D2D', background: 'transparent', cursor: 'pointer', borderRadius: 4 }}>Dismiss</button>
         </div>
       )}
-      {syncing && <div style={{ marginBottom: 8, padding: '6px 14px', background: '#EAF3DE', borderRadius: 8, fontSize: 12, color: '#27500A' }}>Syncing to SharePoint…</div>}
+      {syncing && <div style={{ marginBottom: 8, padding: '6px 14px', background: '#EAF3DE', borderRadius: 8, fontSize: 12, color: '#27500A' }}>Saving to GitHub…</div>}
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.5rem', flexWrap: 'wrap', gap: 12 }}>
         <div>
@@ -601,7 +507,7 @@ const AIToolsRoadmap: React.FC<IAIToolsRoadmapProps> = () => {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0,1fr))', gap: 10, marginBottom: '1.5rem' }}>
-        {[{ label: 'Total tools', value: tools.length }, { label: 'In progress', value: tools.filter(t => t.status === 'In Progress').length }, { label: 'High impact', value: tools.filter(t => t.impact === 'High').length }, { label: 'Avg. progress', value: `${avgProgress}%` }].map(m => (
+        {[{ label: 'Total tools', value: tools.length }, { label: 'In progress', value: tools.filter((t: any) => t.status === 'In Progress').length }, { label: 'High impact', value: tools.filter((t: any) => t.impact === 'High').length }, { label: 'Avg. progress', value: `${avgProgress}%` }].map(m => (
           <div key={m.label} style={{ background: '#f9fafb', borderRadius: 8, padding: '12px 14px' }}>
             <div style={{ fontSize: 12, color: '#6b7280', marginBottom: 4 }}>{m.label}</div>
             <div style={{ fontSize: 22, fontWeight: 500 }}>{m.value}</div>
@@ -623,7 +529,7 @@ const AIToolsRoadmap: React.FC<IAIToolsRoadmapProps> = () => {
                   ))}
                 </div>
               </div>
-              {tools.map(tool => {
+              {tools.map((tool: any) => {
                 const c = COLORS[tool.category] || COLORS.hsd;
                 const cw = getCurWeek(tool);
                 return (
@@ -648,11 +554,11 @@ const AIToolsRoadmap: React.FC<IAIToolsRoadmapProps> = () => {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {tools.map(tool => {
-          const c   = COLORS[tool.category] || COLORS.hsd;
+        {tools.map((tool: any) => {
+          const c = COLORS[tool.category] || COLORS.hsd;
           const pct = progress(tool);
           const isOpen = expanded === tool.id;
-          const cw  = getCurWeek(tool);
+          const cw = getCurWeek(tool);
           return (
             <div key={tool.id} style={{ background: 'white', border: '0.5px solid #e5e7eb', borderRadius: 12, overflow: 'hidden' }}>
               {editTool === tool.id && canEdit ? (
