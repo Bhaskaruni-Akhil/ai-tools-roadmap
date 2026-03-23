@@ -23,7 +23,7 @@ jobs:
         env:
           REACT_APP_GITHUB_TOKEN: ${{ secrets.DATA_WRITE_TOKEN }}
           PUBLIC_URL: /ai-tools-roadmap
-        run: npm run build
+        run: ./node_modules/.bin/react-scripts build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
