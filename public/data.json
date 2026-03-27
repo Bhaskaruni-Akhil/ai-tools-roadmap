@@ -1,227 +1,230 @@
-[
-  {
-    "id": "1",
-    "name": "HSD Conversion",
-    "category": "hsd",
-    "status": "In Progress",
-    "impact": "High",
-    "description": "Automated conversion of HSD artifacts to target format using AI",
-    "notes": "",
-    "w1Date": "2025-01-06",
-    "targetEndDate": "2025-04-14",
-    "flaggedProgressWeek": null,
-    "owners": [
-      "Akhil"
-    ],
-    "milestones": [
-      {
-        "id": "m1",
-        "label": "Discovery & scoping",
-        "week": 1,
-        "done": true,
-        "targetDate": null
-      },
-      {
-        "id": "m2",
-        "label": "Prototype ready",
-        "week": 4,
-        "done": true,
-        "targetDate": null
-      },
-      {
-        "id": "m3",
-        "label": "Internal review",
-        "week": 7,
-        "done": false,
-        "targetDate": null
-      },
-      {
-        "id": "m4",
-        "label": "Team rollout",
-        "week": 10,
-        "done": false,
-        "targetDate": null
-      }
-    ],
-    "subtasks": [
-      {
-        "id": "s1",
-        "label": "Define input/output schema",
-        "done": true
-      },
-      {
-        "id": "s2",
-        "label": "Build AI parsing layer",
-        "done": true
-      },
-      {
-        "id": "s3",
-        "label": "Error handling & edge cases",
-        "done": false
-      },
-      {
-        "id": "s4",
-        "label": "QA & validation pass",
-        "done": false
-      }
-    ]
-  },
-  {
-    "id": "2",
-    "name": "Selenium Test Generation",
-    "category": "selenium",
-    "status": "In Progress",
-    "impact": "High",
-    "description": "AI-assisted Selenium test case generation via Windsurf + BT1 MCP server",
-    "notes": "",
-    "w1Date": "2025-01-06",
-    "targetEndDate": "2025-05-05",
-    "flaggedProgressWeek": null,
-    "owners": [
-      "Akhil"
-    ],
-    "milestones": [
-      {
-        "id": "m5",
-        "label": "MCP server integration",
-        "week": 1,
-        "done": true,
-        "targetDate": null
-      },
-      {
-        "id": "m6",
-        "label": "XPath accuracy fix",
-        "week": 3,
-        "done": true,
-        "targetDate": null
-      },
-      {
-        "id": "m7",
-        "label": "Demo to stakeholders",
-        "week": 5,
-        "done": true,
-        "targetDate": null
-      },
-      {
-        "id": "m8",
-        "label": "XPath automation",
-        "week": 8,
-        "done": false,
-        "targetDate": null
-      },
-      {
-        "id": "m9",
-        "label": "Git integration",
-        "week": 11,
-        "done": false,
-        "targetDate": null
-      }
-    ],
-    "subtasks": [
-      {
-        "id": "s5",
-        "label": "Story/defect input parsing",
-        "done": true
-      },
-      {
-        "id": "s6",
-        "label": "Reliable XPath capture via Selenium IDE",
-        "done": true
-      },
-      {
-        "id": "s7",
-        "label": "Automate XPath recording",
-        "done": false
-      },
-      {
-        "id": "s8",
-        "label": "Git integration for test export",
-        "done": false
-      }
-    ]
-  },
-  {
-    "id": "3",
-    "name": "Playwright Conversion",
-    "category": "playwright",
-    "status": "Planning",
-    "impact": "Medium",
-    "description": "Convert Selenium/manual test suites to Playwright via AI-assisted migration",
-    "notes": "",
-    "w1Date": "2025-02-03",
-    "targetEndDate": "2025-05-26",
-    "flaggedProgressWeek": null,
-    "owners": [
-      "Akhil"
-    ],
-    "milestones": [
-      {
-        "id": "m10",
-        "label": "Scope & feasibility",
-        "week": 2,
-        "done": false,
-        "targetDate": null
-      },
-      {
-        "id": "m11",
-        "label": "Conversion prototype",
-        "week": 6,
-        "done": false,
-        "targetDate": null
-      },
-      {
-        "id": "m12",
-        "label": "Pilot on 1 test suite",
-        "week": 9,
-        "done": false,
-        "targetDate": null
-      },
-      {
-        "id": "m13",
-        "label": "Full rollout",
-        "week": 13,
-        "done": false,
-        "targetDate": null
-      }
-    ],
-    "subtasks": [
-      {
-        "id": "s9",
-        "label": "Audit existing Selenium suite",
-        "done": false
-      },
-      {
-        "id": "s10",
-        "label": "Define Playwright target format",
-        "done": false
-      },
-      {
-        "id": "s11",
-        "label": "Build AI conversion script",
-        "done": false
-      },
-      {
-        "id": "s12",
-        "label": "Validate converted tests",
-        "done": false
-      }
-    ]
-  },
-  {
-    "id": "4",
-    "name": "Dummy project",
-    "category": "dummy",
-    "status": "Complete",
-    "impact": "Low",
-    "description": "Test",
-    "notes": "",
-    "w1Date": "2025-03-03 00:00:00",
-    "targetEndDate": "2025-05-26",
-    "flaggedProgressWeek": null,
-    "owners": [
-      "Abhilasha"
-    ],
-    "milestones": [],
-    "subtasks": []
-  }
-]
+{
+  "tools": [
+    {
+      "id": "1",
+      "name": "HSD Conversion",
+      "category": "hsd",
+      "status": "In Progress",
+      "impact": "High",
+      "description": "Automated conversion of HSD artifacts to target format using AI",
+      "notes": "",
+      "w1Date": "2025-01-06",
+      "targetEndDate": "2025-04-14",
+      "flaggedProgressWeek": null,
+      "owners": [
+        "Akhil"
+      ],
+      "milestones": [
+        {
+          "id": "m1",
+          "label": "Discovery & scoping",
+          "week": 1,
+          "done": true,
+          "targetDate": null
+        },
+        {
+          "id": "m2",
+          "label": "Prototype ready",
+          "week": 4,
+          "done": true,
+          "targetDate": null
+        },
+        {
+          "id": "m3",
+          "label": "Internal review",
+          "week": 7,
+          "done": false,
+          "targetDate": null
+        },
+        {
+          "id": "m4",
+          "label": "Team rollout",
+          "week": 10,
+          "done": false,
+          "targetDate": null
+        }
+      ],
+      "subtasks": [
+        {
+          "id": "s1",
+          "label": "Define input/output schema",
+          "done": true
+        },
+        {
+          "id": "s2",
+          "label": "Build AI parsing layer",
+          "done": true
+        },
+        {
+          "id": "s3",
+          "label": "Error handling & edge cases",
+          "done": false
+        },
+        {
+          "id": "s4",
+          "label": "QA & validation pass",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "name": "Selenium Test Generation",
+      "category": "selenium",
+      "status": "In Progress",
+      "impact": "High",
+      "description": "AI-assisted Selenium test case generation via Windsurf + BT1 MCP server",
+      "notes": "",
+      "w1Date": "2025-01-06",
+      "targetEndDate": "2025-05-05",
+      "flaggedProgressWeek": null,
+      "owners": [
+        "Akhil"
+      ],
+      "milestones": [
+        {
+          "id": "m5",
+          "label": "MCP server integration",
+          "week": 1,
+          "done": true,
+          "targetDate": null
+        },
+        {
+          "id": "m6",
+          "label": "XPath accuracy fix",
+          "week": 3,
+          "done": true,
+          "targetDate": null
+        },
+        {
+          "id": "m7",
+          "label": "Demo to stakeholders",
+          "week": 5,
+          "done": true,
+          "targetDate": null
+        },
+        {
+          "id": "m8",
+          "label": "XPath automation",
+          "week": 8,
+          "done": false,
+          "targetDate": null
+        },
+        {
+          "id": "m9",
+          "label": "Git integration",
+          "week": 11,
+          "done": false,
+          "targetDate": null
+        }
+      ],
+      "subtasks": [
+        {
+          "id": "s5",
+          "label": "Story/defect input parsing",
+          "done": true
+        },
+        {
+          "id": "s6",
+          "label": "Reliable XPath capture via Selenium IDE",
+          "done": true
+        },
+        {
+          "id": "s7",
+          "label": "Automate XPath recording",
+          "done": false
+        },
+        {
+          "id": "s8",
+          "label": "Git integration for test export",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "3",
+      "name": "Playwright Conversion",
+      "category": "playwright",
+      "status": "Planning",
+      "impact": "Medium",
+      "description": "Convert Selenium/manual test suites to Playwright via AI-assisted migration",
+      "notes": "",
+      "w1Date": "2025-02-03",
+      "targetEndDate": "2025-05-26",
+      "flaggedProgressWeek": null,
+      "owners": [
+        "Akhil"
+      ],
+      "milestones": [
+        {
+          "id": "m10",
+          "label": "Scope & feasibility",
+          "week": 2,
+          "done": false,
+          "targetDate": null
+        },
+        {
+          "id": "m11",
+          "label": "Conversion prototype",
+          "week": 6,
+          "done": false,
+          "targetDate": null
+        },
+        {
+          "id": "m12",
+          "label": "Pilot on 1 test suite",
+          "week": 9,
+          "done": false,
+          "targetDate": null
+        },
+        {
+          "id": "m13",
+          "label": "Full rollout",
+          "week": 13,
+          "done": false,
+          "targetDate": null
+        }
+      ],
+      "subtasks": [
+        {
+          "id": "s9",
+          "label": "Audit existing Selenium suite",
+          "done": false
+        },
+        {
+          "id": "s10",
+          "label": "Define Playwright target format",
+          "done": false
+        },
+        {
+          "id": "s11",
+          "label": "Build AI conversion script",
+          "done": false
+        },
+        {
+          "id": "s12",
+          "label": "Validate converted tests",
+          "done": false
+        }
+      ]
+    },
+    {
+      "id": "4",
+      "name": "Dummy project",
+      "category": "dummy",
+      "status": "Complete",
+      "impact": "Low",
+      "description": "Test",
+      "notes": "",
+      "w1Date": "2025-03-03 00:00:00",
+      "targetEndDate": "2025-05-26",
+      "flaggedProgressWeek": null,
+      "owners": [
+        "Abhilasha"
+      ],
+      "milestones": [],
+      "subtasks": []
+    }
+  ],
+  "users": []
+}

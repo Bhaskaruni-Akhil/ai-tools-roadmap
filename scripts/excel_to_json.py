@@ -170,9 +170,11 @@ def convert(input_path, output_path):
             'subtasks':            subtasks,
         })
 
+    output = {'tools': tools, 'users': []}
+
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(tools, f, indent=2, ensure_ascii=False)
+        json.dump(output, f, indent=2, ensure_ascii=False)
 
     print(f'Written:  {output_path}')
     print(f'Tools:    {len(tools)}')
