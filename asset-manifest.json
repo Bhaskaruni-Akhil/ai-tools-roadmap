@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/ai-tools-roadmap/static/css/main.e6c13ad2.css",
-    "main.js": "/ai-tools-roadmap/static/js/main.f3965f0d.js",
+    "main.js": "/ai-tools-roadmap/static/js/main.e1d15f17.js",
     "static/js/453.d2fef42a.chunk.js": "/ai-tools-roadmap/static/js/453.d2fef42a.chunk.js",
     "index.html": "/ai-tools-roadmap/index.html",
     "main.e6c13ad2.css.map": "/ai-tools-roadmap/static/css/main.e6c13ad2.css.map",
-    "main.f3965f0d.js.map": "/ai-tools-roadmap/static/js/main.f3965f0d.js.map",
+    "main.e1d15f17.js.map": "/ai-tools-roadmap/static/js/main.e1d15f17.js.map",
     "453.d2fef42a.chunk.js.map": "/ai-tools-roadmap/static/js/453.d2fef42a.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.e6c13ad2.css",
-    "static/js/main.f3965f0d.js"
+    "static/js/main.e1d15f17.js"
   ]
 }
